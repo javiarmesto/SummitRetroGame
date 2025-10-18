@@ -1,0 +1,11 @@
+{
+  "name": "proyecto-html5",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "live-server --port=5500 --open=./index.html"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
