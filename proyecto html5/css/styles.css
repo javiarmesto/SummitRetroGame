@@ -1,5 +1,105 @@
-*{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,Roboto,Arial}
-body{background:#0b1221;color:#e6eef8;display:flex;flex-direction:column;min-height:100vh}
-header,footer{padding:16px;text-align:center}
-main{flex:1;display:flex;align-items:center;justify-content:center}
-canvas{background:#071028;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.6)}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Courier New', monospace;
+}
+
+body {
+  background: linear-gradient(135deg, #0a0015 0%, #1a0033 50%, #0a0028 100%);
+  color: #00ffff;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+header {
+  padding: 20px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-bottom: 2px solid #ff00ff;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+}
+
+header h1 {
+  font-size: 2.5em;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+header p {
+  color: #00ff88;
+  font-size: 1.1em;
+  margin-top: 8px;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+}
+
+main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+canvas {
+  background: #000014;
+  border: 3px solid #00ffff;
+  border-radius: 10px;
+  box-shadow:
+    0 0 30px rgba(0, 255, 255, 0.6),
+    0 0 60px rgba(255, 0, 255, 0.4),
+    inset 0 0 30px rgba(0, 100, 255, 0.2);
+  cursor: crosshair;
+}
+
+.controls-info {
+  background: rgba(0, 0, 0, 0.7);
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: 2px solid #ff00ff;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+}
+
+.controls-info p {
+  color: #ffff00;
+  font-size: 1em;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+}
+
+.controls-info strong {
+  color: #ff00ff;
+}
+
+footer {
+  padding: 16px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-top: 2px solid #00ffff;
+  color: #00ff88;
+  font-size: 0.9em;
+}
+
+@keyframes glow {
+  from {
+    filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.8));
+  }
+  to {
+    filter: drop-shadow(0 0 40px rgba(255, 0, 255, 1));
+  }
+}
