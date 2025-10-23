@@ -318,6 +318,60 @@ class PlayerBullet {
 const playerBullets = [];
 
 // ========================================
+// ENEMY BULLETS
+// ========================================
+
+class EnemyBullet {
+  constructor(x, y, targetX, targetY) {
+    this.x = x;
+    this.y = y;
+    this.width = 6;
+    this.height = 6;
+    this.speed = 4;
+
+    // Calculate direction towards target
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    this.vx = (dx / distance) * this.speed;
+    this.vy = (dy / distance) * this.speed;
+
+    this.color = '#ff0000';
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = this.color;
+    ctx.fillStyle = this.color;
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner glow
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.width / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  isOffScreen() {
+    return this.x < -20 || this.x > WIDTH + 20 || this.y < -20 || this.y > HEIGHT + 20;
+  }
+}
+
+const enemyBullets = [];
+
+// ========================================
 // ENEMY FRUITS
 // ========================================
 
@@ -519,6 +573,202 @@ class Enemy {
 const enemies = [];
 
 // ========================================
+// BOSS - GIANT PINEAPPLE
+// ========================================
+
+class Boss {
+  constructor() {
+    this.width = 120;
+    this.height = 140;
+    this.x = WIDTH / 2 - this.width / 2;
+    this.y = -this.height;
+    this.speed = 1;
+    this.health = 100;
+    this.maxHealth = 100;
+    this.points = 5000;
+
+    // Movement pattern
+    this.targetY = 80;
+    this.movePhase = 'entering'; // entering, fighting, leaving
+    this.horizontalSpeed = 2;
+    this.direction = 1;
+
+    // Attack patterns
+    this.shootTimer = 0;
+    this.shootDelay = 60; // Frames between attacks
+    this.attackPattern = 0;
+
+    // Visual effects
+    this.color = '#ffd700'; // Gold
+    this.glowPhase = 0;
+    this.isAngry = false; // When health < 50%
+  }
+
+  update() {
+    this.glowPhase += 0.1;
+
+    if (this.movePhase === 'entering') {
+      // Move down to fighting position
+      if (this.y < this.targetY) {
+        this.y += this.speed;
+      } else {
+        this.movePhase = 'fighting';
+      }
+    } else if (this.movePhase === 'fighting') {
+      // Horizontal movement
+      this.x += this.horizontalSpeed * this.direction;
+
+      if (this.x <= 0 || this.x >= WIDTH - this.width) {
+        this.direction *= -1;
+      }
+
+      // Check if angry mode (health < 50%)
+      if (this.health < this.maxHealth / 2) {
+        this.isAngry = true;
+        this.horizontalSpeed = 3;
+        this.shootDelay = 40; // Shoot faster when angry
+      }
+
+      // Attack logic
+      this.shootTimer++;
+      if (this.shootTimer >= this.shootDelay) {
+        this.attack();
+        this.shootTimer = 0;
+        this.attackPattern = (this.attackPattern + 1) % 3;
+      }
+    } else if (this.movePhase === 'leaving') {
+      // Move up off screen
+      this.y -= this.speed * 2;
+    }
+  }
+
+  attack() {
+    const centerX = this.x + this.width / 2;
+    const centerY = this.y + this.height / 2;
+
+    if (this.attackPattern === 0) {
+      // Pattern 1: Shoot at player
+      enemyBullets.push(new EnemyBullet(centerX, centerY, player.x + player.width / 2, player.y + player.height / 2));
+    } else if (this.attackPattern === 1) {
+      // Pattern 2: Spray of bullets
+      for (let i = 0; i < 5; i++) {
+        const angle = (Math.PI / 4) * i - Math.PI / 2;
+        const targetX = centerX + Math.cos(angle) * 300;
+        const targetY = centerY + Math.sin(angle) * 300;
+        enemyBullets.push(new EnemyBullet(centerX, centerY, targetX, targetY));
+      }
+    } else if (this.attackPattern === 2) {
+      // Pattern 3: Circle of bullets
+      const bulletCount = this.isAngry ? 12 : 8;
+      for (let i = 0; i < bulletCount; i++) {
+        const angle = (Math.PI * 2 * i) / bulletCount;
+        const targetX = centerX + Math.cos(angle) * 300;
+        const targetY = centerY + Math.sin(angle) * 300;
+        enemyBullets.push(new EnemyBullet(centerX, centerY, targetX, targetY));
+      }
+    }
+  }
+
+  draw() {
+    ctx.save();
+
+    const centerX = this.x + this.width / 2;
+    const centerY = this.y + this.height / 2;
+
+    // Pulsing glow effect
+    const glowIntensity = 20 + Math.sin(this.glowPhase) * 10;
+    ctx.shadowBlur = glowIntensity;
+    ctx.shadowColor = this.isAngry ? '#ff0000' : this.color;
+
+    // Pineapple body (oval shape)
+    ctx.fillStyle = this.isAngry ? '#ff8800' : this.color;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY + 10, this.width / 2.2, this.height / 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pineapple pattern (diamond grid)
+    ctx.strokeStyle = this.isAngry ? '#cc4400' : '#cc9900';
+    ctx.lineWidth = 2;
+    const rows = 6;
+    const cols = 5;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const offsetX = (row % 2) * 8;
+        const px = centerX - 35 + col * 15 + offsetX;
+        const py = centerY - 20 + row * 15;
+
+        ctx.beginPath();
+        ctx.moveTo(px, py - 5);
+        ctx.lineTo(px + 5, py);
+        ctx.lineTo(px, py + 5);
+        ctx.lineTo(px - 5, py);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+
+    // Pineapple leaves (crown)
+    ctx.fillStyle = '#2e7d32';
+    for (let i = 0; i < 7; i++) {
+      const angle = (Math.PI * 2 * i) / 7 - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY - this.height / 2.5);
+      ctx.lineTo(centerX + Math.cos(angle) * 30, centerY - this.height / 2.5 - 40);
+      ctx.lineTo(centerX + Math.cos(angle) * 15, centerY - this.height / 2.5 - 10);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Angry eyes when damaged
+    if (this.isAngry) {
+      ctx.fillStyle = '#ff0000';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#ff0000';
+
+      // Left eye
+      ctx.beginPath();
+      ctx.arc(centerX - 20, centerY - 10, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right eye
+      ctx.beginPath();
+      ctx.arc(centerX + 20, centerY - 10, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Angry mouth
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY + 15, 15, 0.2 * Math.PI, 0.8 * Math.PI);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  takeDamage() {
+    this.health--;
+    if (this.health <= 0) {
+      this.movePhase = 'leaving';
+      return true;
+    }
+    return false;
+  }
+
+  isDefeated() {
+    return this.health <= 0;
+  }
+
+  isOffScreen() {
+    return this.y < -this.height - 50;
+  }
+}
+
+let currentBoss = null;
+let bossActive = false;
+let nextBossScore = 3000; // First boss at 3000 points
+
+// ========================================
 // ENEMY SPAWNING SYSTEM
 // ========================================
 
@@ -532,6 +782,9 @@ function spawnEnemy() {
 }
 
 function updateSpawning() {
+  // Don't spawn regular enemies during boss fight
+  if (bossActive) return;
+
   spawnTimer++;
 
   if (spawnTimer >= spawnRate) {
@@ -551,6 +804,17 @@ function updateSpawning() {
       setTimeout(() => spawnEnemy(), i * 200);
     }
   }
+
+  // Check if it's time to spawn a boss
+  if (score >= nextBossScore && !bossActive && !currentBoss) {
+    spawnBoss();
+  }
+}
+
+function spawnBoss() {
+  currentBoss = new Boss();
+  bossActive = true;
+  enemies.length = 0; // Clear regular enemies
 }
 
 // ========================================
@@ -567,12 +831,18 @@ function startGame() {
   // Clear arrays
   enemies.length = 0;
   playerBullets.length = 0;
+  enemyBullets.length = 0;
   particles.length = 0;
 
   // Reset spawn timer
   spawnTimer = 0;
   spawnRate = 60;
   waveNumber = 0;
+
+  // Reset boss
+  currentBoss = null;
+  bossActive = false;
+  nextBossScore = 3000;
 
   // Reset player position
   player.x = WIDTH / 2 - player.width / 2;
@@ -583,7 +853,7 @@ function updateGame() {
   // Update player
   player.update();
 
-  // Update bullets
+  // Update player bullets
   for (let i = playerBullets.length - 1; i >= 0; i--) {
     playerBullets[i].update();
 
@@ -593,7 +863,75 @@ function updateGame() {
     }
   }
 
-  // Update enemies
+  // Update enemy bullets
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    enemyBullets[i].update();
+
+    // Check collision with player
+    if (checkCollision(enemyBullets[i], player)) {
+      createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#ff1493');
+      enemyBullets.splice(i, 1);
+      playerLives--;
+
+      if (playerLives <= 0) {
+        gameOver();
+      }
+      continue;
+    }
+
+    // Remove off-screen bullets
+    if (enemyBullets[i].isOffScreen()) {
+      enemyBullets.splice(i, 1);
+    }
+  }
+
+  // Update boss
+  if (currentBoss) {
+    currentBoss.update();
+
+    // Check collision with player
+    if (currentBoss.movePhase === 'fighting' && checkCollision(player, currentBoss)) {
+      createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#ff1493');
+      playerLives--;
+
+      if (playerLives <= 0) {
+        gameOver();
+      }
+    }
+
+    // Check collision with player bullets
+    for (let j = playerBullets.length - 1; j >= 0; j--) {
+      if (checkCollision(playerBullets[j], currentBoss)) {
+        currentBoss.takeDamage();
+        playerBullets.splice(j, 1);
+
+        if (currentBoss.isDefeated()) {
+          score += currentBoss.points;
+          createExplosion(currentBoss.x + currentBoss.width / 2,
+                         currentBoss.y + currentBoss.height / 2,
+                         currentBoss.color);
+          // Create bigger explosion for boss
+          for (let k = 0; k < 3; k++) {
+            setTimeout(() => {
+              createExplosion(currentBoss.x + currentBoss.width / 2 + rand(-30, 30),
+                             currentBoss.y + currentBoss.height / 2 + rand(-30, 30),
+                             currentBoss.color);
+            }, k * 100);
+          }
+        }
+        break;
+      }
+    }
+
+    // Remove boss if off screen after defeat
+    if (currentBoss.isOffScreen() && currentBoss.movePhase === 'leaving') {
+      currentBoss = null;
+      bossActive = false;
+      nextBossScore = score + 3000; // Next boss in 3000 points
+    }
+  }
+
+  // Update regular enemies
   for (let i = enemies.length - 1; i >= 0; i--) {
     enemies[i].update();
 
@@ -765,6 +1103,78 @@ function drawHUD() {
   ctx.shadowColor = '#00ffff';
   ctx.fillText(`High: ${highScore}`, WIDTH - 20, 35);
 
+  // Boss warning or health bar
+  if (bossActive && currentBoss) {
+    if (currentBoss.movePhase === 'entering') {
+      // Boss warning
+      ctx.font = 'bold 48px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff0000';
+      ctx.shadowBlur = 30;
+      ctx.shadowColor = '#ff0000';
+      ctx.fillText('WARNING!', WIDTH / 2, HEIGHT / 2);
+
+      ctx.font = 'bold 36px "Courier New"';
+      ctx.fillStyle = '#ffd700';
+      ctx.shadowColor = '#ffd700';
+      ctx.fillText('BOSS APPROACHING', WIDTH / 2, HEIGHT / 2 + 50);
+    } else if (currentBoss.movePhase === 'fighting') {
+      // Boss health bar
+      const barWidth = 600;
+      const barHeight = 30;
+      const barX = (WIDTH - barWidth) / 2;
+      const barY = 20;
+      const healthPercent = currentBoss.health / currentBoss.maxHealth;
+
+      // Background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(barX - 5, barY - 5, barWidth + 10, barHeight + 10);
+
+      // Border
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#ffd700';
+      ctx.strokeRect(barX - 5, barY - 5, barWidth + 10, barHeight + 10);
+
+      // Health bar background
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#330000';
+      ctx.fillRect(barX, barY, barWidth, barHeight);
+
+      // Health bar fill
+      const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth * healthPercent, 0);
+      if (currentBoss.isAngry) {
+        gradient.addColorStop(0, '#ff0000');
+        gradient.addColorStop(1, '#ff8800');
+      } else {
+        gradient.addColorStop(0, '#00ff00');
+        gradient.addColorStop(1, '#ffff00');
+      }
+      ctx.fillStyle = gradient;
+      ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+
+      // Boss name and health text
+      ctx.font = 'bold 20px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = '#000000';
+      ctx.fillText(`BOSS: GIANT PINEAPPLE - ${currentBoss.health}/${currentBoss.maxHealth}`, WIDTH / 2, barY + barHeight / 2 + 7);
+    }
+  } else if (!bossActive && score > 0) {
+    // Next boss indicator
+    const remaining = nextBossScore - score;
+    if (remaining > 0 && remaining <= 500) {
+      ctx.font = '18px "Courier New"';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff8800';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#ff8800';
+      ctx.fillText(`Next Boss in ${remaining} pts`, WIDTH / 2, HEIGHT - 20);
+    }
+  }
+
   ctx.restore();
 }
 
@@ -788,9 +1198,15 @@ function render() {
 
     // Draw bullets
     playerBullets.forEach(b => b.draw());
+    enemyBullets.forEach(b => b.draw());
 
     // Draw enemies
     enemies.forEach(e => e.draw());
+
+    // Draw boss
+    if (currentBoss) {
+      currentBoss.draw();
+    }
 
     // Draw player
     player.draw();
@@ -801,7 +1217,11 @@ function render() {
     // Draw game elements faded
     particles.forEach(p => p.draw());
     playerBullets.forEach(b => b.draw());
+    enemyBullets.forEach(b => b.draw());
     enemies.forEach(e => e.draw());
+    if (currentBoss) {
+      currentBoss.draw();
+    }
     player.draw();
 
     // Draw game over screen
