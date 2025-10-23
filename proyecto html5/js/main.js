@@ -519,6 +519,293 @@ class Enemy {
 const enemies = [];
 
 // ========================================
+// BOSS BULLETS
+// ========================================
+
+class BossBullet {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.width = 8;
+    this.height = 8;
+    this.speed = 4;
+    this.color = '#ff00ff';
+  }
+
+  update() {
+    this.y += this.speed;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = this.color;
+    ctx.fillStyle = this.color;
+
+    // Diamond shape
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y - this.height);
+    ctx.lineTo(this.x + this.width, this.y);
+    ctx.lineTo(this.x, this.y + this.height);
+    ctx.lineTo(this.x - this.width, this.y);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  isOffScreen() {
+    return this.y > HEIGHT + this.height;
+  }
+}
+
+const bossBullets = [];
+
+// ========================================
+// BOSS ENEMY
+// ========================================
+
+class Boss {
+  constructor() {
+    this.width = 120;
+    this.height = 120;
+    this.x = WIDTH / 2 - this.width / 2;
+    this.y = -this.height - 50;
+    this.targetY = 80; // Position where boss stops
+    this.speed = 1;
+    this.health = 100;
+    this.maxHealth = 100;
+    this.points = 5000;
+
+    // Movement pattern
+    this.moveDirection = 1;
+    this.moveSpeed = 2;
+    this.moveRange = WIDTH - this.width - 40;
+
+    // Shooting
+    this.shootCooldown = 0;
+    this.shootDelay = 40; // Frames between shots
+    this.shootPattern = 0;
+
+    // Visual effects
+    this.pulsePhase = 0;
+    this.color = '#ff0066';
+    this.accentColor = '#9900ff';
+
+    // States
+    this.isEntering = true;
+    this.isDefeated = false;
+  }
+
+  update() {
+    // Entry animation
+    if (this.isEntering) {
+      if (this.y < this.targetY) {
+        this.y += this.speed;
+      } else {
+        this.isEntering = false;
+      }
+    } else {
+      // Horizontal movement
+      this.x += this.moveSpeed * this.moveDirection;
+
+      // Bounce at edges
+      if (this.x <= 20) {
+        this.moveDirection = 1;
+      } else if (this.x >= this.moveRange - 20) {
+        this.moveDirection = -1;
+      }
+    }
+
+    // Shooting
+    if (!this.isEntering) {
+      if (this.shootCooldown > 0) {
+        this.shootCooldown--;
+      } else {
+        this.shoot();
+        this.shootCooldown = this.shootDelay;
+      }
+    }
+
+    // Visual effects
+    this.pulsePhase += 0.05;
+  }
+
+  shoot() {
+    const centerX = this.x + this.width / 2;
+    const bottomY = this.y + this.height;
+
+    // Different shooting patterns
+    this.shootPattern = (this.shootPattern + 1) % 3;
+
+    if (this.shootPattern === 0) {
+      // Single shot at player
+      bossBullets.push(new BossBullet(centerX, bottomY));
+    } else if (this.shootPattern === 1) {
+      // Triple shot
+      bossBullets.push(new BossBullet(centerX - 30, bottomY));
+      bossBullets.push(new BossBullet(centerX, bottomY));
+      bossBullets.push(new BossBullet(centerX + 30, bottomY));
+    } else {
+      // Spread shot (5 bullets)
+      for (let i = -2; i <= 2; i++) {
+        bossBullets.push(new BossBullet(centerX + i * 20, bottomY));
+      }
+    }
+  }
+
+  draw() {
+    ctx.save();
+
+    const centerX = this.x + this.width / 2;
+    const centerY = this.y + this.height / 2;
+    const radius = this.width / 2;
+
+    // Pulsing glow effect
+    const pulseSize = Math.sin(this.pulsePhase) * 10;
+    ctx.shadowBlur = 30 + pulseSize;
+    ctx.shadowColor = this.color;
+
+    // Outer ring
+    ctx.strokeStyle = this.accentColor;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius + 5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Main body - Pineapple style
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner pattern
+    ctx.fillStyle = this.accentColor;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius - 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core
+    ctx.fillStyle = '#ff00ff';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#ff00ff';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius - 25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Diamond patterns
+    ctx.fillStyle = '#ffff00';
+    ctx.shadowBlur = 10;
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const x = centerX + Math.cos(angle) * (radius - 15);
+      const y = centerY + Math.sin(angle) * (radius - 15);
+
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x + 3, y);
+      ctx.lineTo(x, y + 5);
+      ctx.lineTo(x - 3, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Angry eyes
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(centerX - 20, centerY - 10, 8, 0, Math.PI * 2);
+    ctx.arc(centerX + 20, centerY - 10, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.arc(centerX - 20, centerY - 10, 4, 0, Math.PI * 2);
+    ctx.arc(centerX + 20, centerY - 10, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Angry mouth
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 15, centerY + 15);
+    ctx.lineTo(centerX, centerY + 20);
+    ctx.lineTo(centerX + 15, centerY + 15);
+    ctx.stroke();
+
+    // Crown/spikes on top
+    ctx.fillStyle = '#00ff00';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#00ff00';
+    for (let i = 0; i < 6; i++) {
+      const spikeAngle = -Math.PI / 2 + (i * Math.PI) / 12;
+      const baseX1 = centerX + Math.cos(spikeAngle - 0.2) * radius;
+      const baseY1 = centerY + Math.sin(spikeAngle - 0.2) * radius;
+      const baseX2 = centerX + Math.cos(spikeAngle + 0.2) * radius;
+      const baseY2 = centerY + Math.sin(spikeAngle + 0.2) * radius;
+      const tipX = centerX + Math.cos(spikeAngle) * (radius + 15);
+      const tipY = centerY + Math.sin(spikeAngle) * (radius + 15);
+
+      ctx.beginPath();
+      ctx.moveTo(baseX1, baseY1);
+      ctx.lineTo(tipX, tipY);
+      ctx.lineTo(baseX2, baseY2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Boss health bar (large)
+    const barWidth = this.width + 60;
+    const barHeight = 12;
+    const barX = this.x - 30;
+    const barY = this.y - 30;
+    const healthPercent = this.health / this.maxHealth;
+
+    ctx.shadowBlur = 0;
+
+    // Bar background
+    ctx.fillStyle = '#330000';
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Border
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+    // Health fill
+    const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth * healthPercent, 0);
+    gradient.addColorStop(0, '#ff0000');
+    gradient.addColorStop(0.5, '#ff6600');
+    gradient.addColorStop(1, '#ffff00');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(barX + 2, barY + 2, (barWidth - 4) * healthPercent, barHeight - 4);
+
+    // Boss name
+    ctx.font = 'bold 16px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffff00';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffff00';
+    ctx.fillText('BOSS: MEGA PINEAPPLE', centerX, barY - 10);
+
+    ctx.restore();
+  }
+
+  takeDamage() {
+    this.health--;
+    return this.health <= 0;
+  }
+
+  isOffScreen() {
+    return this.y > HEIGHT;
+  }
+}
+
+let currentBoss = null;
+let lastBossScore = 0;
+
+// ========================================
 // ENEMY SPAWNING SYSTEM
 // ========================================
 
@@ -532,24 +819,35 @@ function spawnEnemy() {
 }
 
 function updateSpawning() {
-  spawnTimer++;
+  // Only spawn regular enemies if no boss is active
+  if (!currentBoss) {
+    spawnTimer++;
 
-  if (spawnTimer >= spawnRate) {
-    spawnEnemy();
-    spawnTimer = 0;
+    if (spawnTimer >= spawnRate) {
+      spawnEnemy();
+      spawnTimer = 0;
 
-    // Increase difficulty over time
-    if (score > 0 && score % 1000 === 0) {
-      spawnRate = Math.max(30, spawnRate - 2);
+      // Increase difficulty over time
+      if (score > 0 && score % 1000 === 0) {
+        spawnRate = Math.max(30, spawnRate - 2);
+      }
+    }
+
+    // Spawn waves occasionally
+    if (score > 0 && score % 2000 === 0 && waveNumber !== score) {
+      waveNumber = score;
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => spawnEnemy(), i * 200);
+      }
     }
   }
 
-  // Spawn waves occasionally
-  if (score > 0 && score % 2000 === 0 && waveNumber !== score) {
-    waveNumber = score;
-    for (let i = 0; i < 5; i++) {
-      setTimeout(() => spawnEnemy(), i * 200);
-    }
+  // Spawn boss every 5000 points
+  if (score > 0 && score >= lastBossScore + 5000 && !currentBoss) {
+    currentBoss = new Boss();
+    lastBossScore = score;
+    // Clear enemies when boss appears
+    enemies.length = 0;
   }
 }
 
@@ -567,12 +865,17 @@ function startGame() {
   // Clear arrays
   enemies.length = 0;
   playerBullets.length = 0;
+  bossBullets.length = 0;
   particles.length = 0;
 
   // Reset spawn timer
   spawnTimer = 0;
   spawnRate = 60;
   waveNumber = 0;
+
+  // Reset boss
+  currentBoss = null;
+  lastBossScore = 0;
 
   // Reset player position
   player.x = WIDTH / 2 - player.width / 2;
@@ -642,6 +945,73 @@ function updateGame() {
     particles[i].update();
     if (particles[i].isDead()) {
       particles.splice(i, 1);
+    }
+  }
+
+  // Update boss
+  if (currentBoss) {
+    currentBoss.update();
+
+    // Check collision with player bullets
+    for (let j = playerBullets.length - 1; j >= 0; j--) {
+      if (checkCollision(playerBullets[j], currentBoss)) {
+        const destroyed = currentBoss.takeDamage();
+
+        if (destroyed) {
+          score += currentBoss.points;
+          createExplosion(currentBoss.x + currentBoss.width / 2,
+                         currentBoss.y + currentBoss.height / 2,
+                         currentBoss.color);
+
+          // Create massive explosion on boss defeat
+          for (let k = 0; k < 100; k++) {
+            particles.push(new Particle(
+              currentBoss.x + currentBoss.width / 2,
+              currentBoss.y + currentBoss.height / 2,
+              ['#ff00ff', '#ffff00', '#00ffff', '#ff0066'][randInt(0, 3)]
+            ));
+          }
+
+          currentBoss = null;
+          bossBullets.length = 0; // Clear boss bullets
+        }
+
+        playerBullets.splice(j, 1);
+      }
+    }
+
+    // Check collision with player
+    if (currentBoss && checkCollision(player, currentBoss)) {
+      createExplosion(player.x + player.width / 2,
+                     player.y + player.height / 2,
+                     '#ff1493');
+      playerLives--;
+
+      if (playerLives <= 0) {
+        gameOver();
+      }
+    }
+  }
+
+  // Update boss bullets
+  for (let i = bossBullets.length - 1; i >= 0; i--) {
+    bossBullets[i].update();
+
+    // Remove off-screen bullets
+    if (bossBullets[i].isOffScreen()) {
+      bossBullets.splice(i, 1);
+      continue;
+    }
+
+    // Check collision with player
+    if (checkCollision(bossBullets[i], player)) {
+      createExplosion(bossBullets[i].x, bossBullets[i].y, bossBullets[i].color);
+      bossBullets.splice(i, 1);
+      playerLives--;
+
+      if (playerLives <= 0) {
+        gameOver();
+      }
     }
   }
 
@@ -789,8 +1159,16 @@ function render() {
     // Draw bullets
     playerBullets.forEach(b => b.draw());
 
+    // Draw boss bullets
+    bossBullets.forEach(b => b.draw());
+
     // Draw enemies
     enemies.forEach(e => e.draw());
+
+    // Draw boss
+    if (currentBoss) {
+      currentBoss.draw();
+    }
 
     // Draw player
     player.draw();
@@ -801,7 +1179,11 @@ function render() {
     // Draw game elements faded
     particles.forEach(p => p.draw());
     playerBullets.forEach(b => b.draw());
+    bossBullets.forEach(b => b.draw());
     enemies.forEach(e => e.draw());
+    if (currentBoss) {
+      currentBoss.draw();
+    }
     player.draw();
 
     // Draw game over screen
