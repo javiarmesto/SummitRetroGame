@@ -23,6 +23,14 @@ let score = 0;
 let highScore = localStorage.getItem('spaceShooterHighScore') || 0;
 let playerLives = 3;
 
+// WOW EFFECTS
+let comboCount = 0;
+let comboTimer = 0;
+const COMBO_TIMEOUT = 60; // Frames to reset combo
+let shieldActive = false;
+let shieldTimer = 0;
+let shieldDuration = 300;
+
 // ========================================
 // INPUT HANDLING
 // ========================================
@@ -170,11 +178,254 @@ class Particle {
 }
 
 const particles = [];
+const hitmarkers = [];
+const floatingPoints = [];
+const burnTrails = [];
+const shockwaves = [];
+const bonusStars = [];
 
 function createExplosion(x, y, color) {
   const particleCount = randInt(20, 40);
   for (let i = 0; i < particleCount; i++) {
     particles.push(new Particle(x, y, color));
+  }
+}
+
+// ========================================
+// HITMARKER EFFECT
+// ========================================
+
+class Hitmarker {
+  constructor(x, y, text = 'HIT') {
+    this.x = x;
+    this.y = y;
+    this.text = text;
+    this.life = 1;
+    this.decay = 0.02;
+    this.vx = rand(-1, 1);
+    this.vy = -2;
+    this.size = 24;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= this.decay;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.life;
+    ctx.font = `bold ${this.size}px "Courier New"`;
+    ctx.textAlign = 'center';
+
+    // Color basado en el tipo de hit
+    if (this.text.includes('COMBO')) {
+      ctx.fillStyle = '#ffff00';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#ffff00';
+    } else {
+      ctx.fillStyle = '#00ff00';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#00ff00';
+    }
+
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.restore();
+  }
+
+  isDead() {
+    return this.life <= 0;
+  }
+}
+
+// ========================================
+// FLOATING POINTS EFFECT
+// ========================================
+
+class FloatingPoints {
+  constructor(x, y, points) {
+    this.startX = x;
+    this.startY = y;
+    this.x = x;
+    this.y = y;
+    this.points = points;
+    this.life = 1;
+    this.decay = 0.015;
+    this.progress = 0;
+  }
+
+  update() {
+    this.progress += 0.02;
+    this.life -= this.decay;
+
+    // Trajectory towards score counter (top-left)
+    const targetX = 80;
+    const targetY = 35;
+
+    this.x = this.startX + (targetX - this.startX) * this.progress;
+    this.y = this.startY + (targetY - this.startY) * this.progress;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.life * 0.8;
+    ctx.font = 'bold 18px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffff00';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffff00';
+    ctx.fillText(`+${this.points}`, this.x, this.y);
+    ctx.restore();
+  }
+
+  isDead() {
+    return this.life <= 0;
+  }
+}
+
+// ========================================
+// BURN TRAIL EFFECT
+// ========================================
+
+class BurnTrail {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.life = 1;
+    this.decay = 0.03;
+    this.radius = rand(5, 15);
+  }
+
+  update() {
+    this.life -= this.decay;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.life * 0.7;
+
+    // Gradient de fuego
+    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+    gradient.addColorStop(0, '#ff6600');
+    gradient.addColorStop(0.5, '#ff3300');
+    gradient.addColorStop(1, '#990000');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  isDead() {
+    return this.life <= 0;
+  }
+}
+
+// ========================================
+// SHOCK WAVE EFFECT
+// ========================================
+
+class Shockwave {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.radius = 5;
+    this.maxRadius = 100;
+    this.expandSpeed = 3;
+    this.life = 1;
+    this.decay = 0.015;
+  }
+
+  update() {
+    this.radius += this.expandSpeed;
+    this.life -= this.decay;
+  }
+
+  draw() {
+    if (this.radius > this.maxRadius) return;
+
+    ctx.save();
+    ctx.globalAlpha = this.life * 0.8;
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#00ffff';
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  isDead() {
+    return this.life <= 0;
+  }
+}
+
+// ========================================
+// BONUS STAR EFFECT
+// ========================================
+
+class BonusStar {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.targetX = x + rand(-100, 100);
+    this.targetY = y - 150;
+    this.life = 1;
+    this.decay = 0.015;
+    this.progress = 0;
+    this.spin = 0;
+  }
+
+  update() {
+    this.progress += 0.01;
+    this.life -= this.decay;
+    this.spin += 0.1;
+
+    this.x = this.x + (this.targetX - this.x) * 0.05;
+    this.y = this.y + (this.targetY - this.y) * 0.05;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.life;
+
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.spin);
+
+    ctx.fillStyle = '#ffff00';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#ffff00';
+
+    // Draw 5-pointed star
+    const size = 8;
+    const points = 5;
+    for (let i = 0; i < points; i++) {
+      const angle = (i * Math.PI * 2) / points - Math.PI / 2;
+      const x = Math.cos(angle) * size;
+      const y = Math.sin(angle) * size;
+
+      if (i === 0) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  isDead() {
+    return this.life <= 0;
   }
 }
 
@@ -272,6 +523,24 @@ class Player {
     ctx.arc(centerX - 8, centerY - 8, 6, 0, Math.PI * 2);
     ctx.fill();
 
+    // Shield effect
+    if (shieldActive) {
+      const shieldAlpha = Math.sin(shieldTimer * 0.1) * 0.3 + 0.4;
+      ctx.globalAlpha = shieldAlpha;
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#00ffff';
+
+      // Draw pulsing shield circles
+      for (let i = 0; i < 3; i++) {
+        const shieldRadius = radius + 15 + (i * 8);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, shieldRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
     ctx.restore();
   }
 }
@@ -288,24 +557,46 @@ class PlayerBullet {
     this.height = 15;
     this.speed = 8;
     this.color = '#00ff00';
+    this.trailPoints = [];
   }
 
   update() {
+    this.trailPoints.push({ x: this.x, y: this.y });
+    if (this.trailPoints.length > 20) {
+      this.trailPoints.shift();
+    }
     this.y -= this.speed;
   }
 
   draw() {
     ctx.save();
-    ctx.shadowBlur = 15;
+
+    // Epic trail effect - rainbow gradient
+    for (let i = 0; i < this.trailPoints.length; i++) {
+      const point = this.trailPoints[i];
+      const alpha = (i / this.trailPoints.length) * 0.6;
+      ctx.globalAlpha = alpha;
+
+      // Alternate colors in trail
+      const colors = ['#00ff00', '#00ffff', '#ff00ff'];
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = colors[i % colors.length];
+
+      ctx.fillRect(point.x - this.width / 2 - 1, point.y, this.width + 2, this.height / 2);
+    }
+
+    // Main bullet
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 20;
     ctx.shadowColor = this.color;
     ctx.fillStyle = this.color;
 
-    // Bullet shape
     ctx.fillRect(this.x - this.width / 2, this.y, this.width, this.height);
 
-    // Bullet trail
-    ctx.globalAlpha = 0.5;
-    ctx.fillRect(this.x - this.width / 2, this.y + this.height, this.width, 10);
+    // Bright core
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(this.x - this.width / 3, this.y + 2, this.width * 0.66, this.height - 4);
 
     ctx.restore();
   }
@@ -867,6 +1158,11 @@ function startGame() {
   playerBullets.length = 0;
   bossBullets.length = 0;
   particles.length = 0;
+  hitmarkers.length = 0;
+  floatingPoints.length = 0;
+  burnTrails.length = 0;
+  shockwaves.length = 0;
+  bonusStars.length = 0;
 
   // Reset spawn timer
   spawnTimer = 0;
@@ -877,6 +1173,12 @@ function startGame() {
   currentBoss = null;
   lastBossScore = 0;
 
+  // Reset WOW effects
+  comboCount = 0;
+  comboTimer = 0;
+  shieldActive = false;
+  shieldTimer = 0;
+
   // Reset player position
   player.x = WIDTH / 2 - player.width / 2;
   player.y = HEIGHT - player.height - 30;
@@ -885,6 +1187,22 @@ function startGame() {
 function updateGame() {
   // Update player
   player.update();
+
+  // Update shield timer
+  if (shieldActive) {
+    shieldTimer++;
+    if (shieldTimer >= shieldDuration) {
+      shieldActive = false;
+      shieldTimer = 0;
+    }
+  }
+
+  // Update combo timer
+  comboTimer++;
+  if (comboTimer > COMBO_TIMEOUT) {
+    comboCount = 0;
+    comboTimer = 0;
+  }
 
   // Update bullets
   for (let i = playerBullets.length - 1; i >= 0; i--) {
@@ -896,20 +1214,70 @@ function updateGame() {
     }
   }
 
+  // Update hitmarkers
+  for (let i = hitmarkers.length - 1; i >= 0; i--) {
+    hitmarkers[i].update();
+    if (hitmarkers[i].isDead()) {
+      hitmarkers.splice(i, 1);
+    }
+  }
+
+  // Update floating points
+  for (let i = floatingPoints.length - 1; i >= 0; i--) {
+    floatingPoints[i].update();
+    if (floatingPoints[i].isDead()) {
+      floatingPoints.splice(i, 1);
+    }
+  }
+
+  // Update burn trails
+  for (let i = burnTrails.length - 1; i >= 0; i--) {
+    burnTrails[i].update();
+    if (burnTrails[i].isDead()) {
+      burnTrails.splice(i, 1);
+    }
+  }
+
+  // Update shockwaves
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    shockwaves[i].update();
+    if (shockwaves[i].isDead()) {
+      shockwaves.splice(i, 1);
+    }
+  }
+
+  // Update bonus stars
+  for (let i = bonusStars.length - 1; i >= 0; i--) {
+    bonusStars[i].update();
+    if (bonusStars[i].isDead()) {
+      bonusStars.splice(i, 1);
+    }
+  }
+
   // Update enemies
   for (let i = enemies.length - 1; i >= 0; i--) {
     enemies[i].update();
 
     // Check collision with player
     if (checkCollision(player, enemies[i])) {
-      createExplosion(enemies[i].x + enemies[i].width / 2,
-                     enemies[i].y + enemies[i].height / 2,
-                     enemies[i].color);
-      enemies.splice(i, 1);
-      playerLives--;
+      if (!shieldActive) {
+        createExplosion(enemies[i].x + enemies[i].width / 2,
+                       enemies[i].y + enemies[i].height / 2,
+                       enemies[i].color);
+        enemies.splice(i, 1);
+        playerLives--;
 
-      if (playerLives <= 0) {
-        gameOver();
+        if (playerLives <= 0) {
+          gameOver();
+        }
+      } else {
+        // Shield absorbs hit
+        shieldActive = false;
+        shieldTimer = 0;
+        enemies.splice(i, 1);
+        createExplosion(player.x + player.width / 2,
+                       player.y + player.height / 2,
+                       '#00ffff');
       }
       continue;
     }
@@ -926,11 +1294,69 @@ function updateGame() {
         // Hit enemy
         const destroyed = enemies[i].takeDamage();
 
+        // Add hitmarker
+        hitmarkers.push(new Hitmarker(
+          enemies[i].x + enemies[i].width / 2,
+          enemies[i].y - 20,
+          'HIT'
+        ));
+
         if (destroyed) {
-          score += enemies[i].points;
+          // Update combo
+          comboCount++;
+          comboTimer = 0;
+
+          // Add floating points
+          floatingPoints.push(new FloatingPoints(
+            enemies[i].x + enemies[i].width / 2,
+            enemies[i].y + enemies[i].height / 2,
+            enemies[i].points
+          ));
+
+          // Add combo text if combo > 1
+          if (comboCount > 1) {
+            hitmarkers.push(new Hitmarker(
+              enemies[i].x + enemies[i].width / 2,
+              enemies[i].y - 50,
+              `COMBO x${comboCount}`
+            ));
+          }
+
+          // Calculate points with combo multiplier
+          const pointsMultiplier = 1 + (Math.floor(comboCount / 5) * 0.5);
+          const bonusPoints = Math.floor(enemies[i].points * (pointsMultiplier - 1));
+
+          score += enemies[i].points + bonusPoints;
+
+          // Add burn trails
+          for (let k = 0; k < 5; k++) {
+            const angle = (Math.PI * 2 * k) / 5;
+            const x = enemies[i].x + enemies[i].width / 2 + Math.cos(angle) * 15;
+            const y = enemies[i].y + enemies[i].height / 2 + Math.sin(angle) * 15;
+            burnTrails.push(new BurnTrail(x, y));
+          }
+
+          // Create explosion
           createExplosion(enemies[i].x + enemies[i].width / 2,
                          enemies[i].y + enemies[i].height / 2,
                          enemies[i].color);
+
+          // Add shockwave
+          shockwaves.push(new Shockwave(
+            enemies[i].x + enemies[i].width / 2,
+            enemies[i].y + enemies[i].height / 2
+          ));
+
+          // Spawn bonus stars every 500 points
+          if (score % 500 < enemies[i].points) {
+            for (let k = 0; k < 3; k++) {
+              bonusStars.push(new BonusStar(
+                enemies[i].x + enemies[i].width / 2,
+                enemies[i].y + enemies[i].height / 2
+              ));
+            }
+          }
+
           enemies.splice(i, 1);
         }
 
@@ -957,20 +1383,57 @@ function updateGame() {
       if (checkCollision(playerBullets[j], currentBoss)) {
         const destroyed = currentBoss.takeDamage();
 
+        // Add hitmarker for boss
+        hitmarkers.push(new Hitmarker(
+          currentBoss.x + currentBoss.width / 2,
+          currentBoss.y - 20,
+          'BOSS HIT'
+        ));
+
         if (destroyed) {
           score += currentBoss.points;
+
+          // Add floating points
+          floatingPoints.push(new FloatingPoints(
+            currentBoss.x + currentBoss.width / 2,
+            currentBoss.y + currentBoss.height / 2,
+            currentBoss.points
+          ));
+
           createExplosion(currentBoss.x + currentBoss.width / 2,
                          currentBoss.y + currentBoss.height / 2,
                          currentBoss.color);
 
           // Create massive explosion on boss defeat
-          for (let k = 0; k < 100; k++) {
+          for (let k = 0; k < 150; k++) {
             particles.push(new Particle(
               currentBoss.x + currentBoss.width / 2,
               currentBoss.y + currentBoss.height / 2,
               ['#ff00ff', '#ffff00', '#00ffff', '#ff0066'][randInt(0, 3)]
             ));
           }
+
+          // Large shockwave for boss defeat
+          for (let k = 0; k < 3; k++) {
+            setTimeout(() => {
+              shockwaves.push(new Shockwave(
+                currentBoss.x + currentBoss.width / 2,
+                currentBoss.y + currentBoss.height / 2
+              ));
+            }, k * 100);
+          }
+
+          // Spawn lots of bonus stars
+          for (let k = 0; k < 10; k++) {
+            bonusStars.push(new BonusStar(
+              currentBoss.x + currentBoss.width / 2,
+              currentBoss.y + currentBoss.height / 2
+            ));
+          }
+
+          // Activate shield on boss defeat
+          shieldActive = true;
+          shieldTimer = 0;
 
           currentBoss = null;
           bossBullets.length = 0; // Clear boss bullets
@@ -982,13 +1445,22 @@ function updateGame() {
 
     // Check collision with player
     if (currentBoss && checkCollision(player, currentBoss)) {
-      createExplosion(player.x + player.width / 2,
-                     player.y + player.height / 2,
-                     '#ff1493');
-      playerLives--;
+      if (!shieldActive) {
+        createExplosion(player.x + player.width / 2,
+                       player.y + player.height / 2,
+                       '#ff1493');
+        playerLives--;
 
-      if (playerLives <= 0) {
-        gameOver();
+        if (playerLives <= 0) {
+          gameOver();
+        }
+      } else {
+        // Shield absorbs hit
+        shieldActive = false;
+        shieldTimer = 0;
+        createExplosion(player.x + player.width / 2,
+                       player.y + player.height / 2,
+                       '#00ffff');
       }
     }
   }
@@ -1007,10 +1479,20 @@ function updateGame() {
     if (checkCollision(bossBullets[i], player)) {
       createExplosion(bossBullets[i].x, bossBullets[i].y, bossBullets[i].color);
       bossBullets.splice(i, 1);
-      playerLives--;
 
-      if (playerLives <= 0) {
-        gameOver();
+      if (!shieldActive) {
+        playerLives--;
+
+        if (playerLives <= 0) {
+          gameOver();
+        }
+      } else {
+        // Shield absorbs hit
+        shieldActive = false;
+        shieldTimer = 0;
+        createExplosion(player.x + player.width / 2,
+                       player.y + player.height / 2,
+                       '#00ffff');
       }
     }
   }
@@ -1153,6 +1635,12 @@ function render() {
   if (gameState === GAME_STATES.START) {
     drawStartScreen();
   } else if (gameState === GAME_STATES.PLAYING) {
+    // Draw burn trails (background)
+    burnTrails.forEach(b => b.draw());
+
+    // Draw shockwaves
+    shockwaves.forEach(s => s.draw());
+
     // Draw particles
     particles.forEach(p => p.draw());
 
@@ -1172,6 +1660,15 @@ function render() {
 
     // Draw player
     player.draw();
+
+    // Draw bonus stars
+    bonusStars.forEach(s => s.draw());
+
+    // Draw floating points
+    floatingPoints.forEach(fp => fp.draw());
+
+    // Draw hitmarkers (foreground)
+    hitmarkers.forEach(hm => hm.draw());
 
     // Draw HUD
     drawHUD();
